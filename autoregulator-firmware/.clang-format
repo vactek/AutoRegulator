@@ -1,0 +1,12 @@
+Standard: Auto
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 240
+AlignConsecutiveAssignments: true
+AlignConsecutiveMacros: true
+SortIncludes: false
+SpaceAfterCStyleCast: true
+SpaceBeforeAssignmentOperators: true
+NamespaceIndentation: All
+AlignArrayOfStructures: Left
+IndentCaseLabels: true
