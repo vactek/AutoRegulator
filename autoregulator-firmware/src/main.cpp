@@ -22,9 +22,9 @@
 
 // ### LIMITS
 #define BACKUP_TIMER_MS    (3600000UL) // 1h in ms. machine will shut off at this time. not for solo; it's if the operator is struck by lightning.
-#define SUCTION_MAX_MBAR   (200.0F)    // 100~150 is ideal, could use further testing
-#define SUCTION_MIN_MBAR   (10.0F)     // this value needs testing
-#define SUCTION_HYSTERESIS (5.0F)      // in mbar
+#define SUCTION_MAX_MBAR   (170.0F)    // 100~150mbar is ideal, could use further testing
+#define SUCTION_MIN_MBAR   (55.0F)     // minimum targetable. if it's too low the noise of the pump turning on can exceed this in some situations
+#define SUCTION_HYSTERESIS (30.0F)     // in mbar. low values cause rapid switching, higher values (may) reduce duty cycle at the cost of average suction
 #define MECHANICAL_MAX_HZ  (0.8F)      // max (average) frequency the relay can ever switch at
 
 const float PSI_ATMOSPHERIC               = 14.6959; // only used if calibration is ever bypassed for some reason
