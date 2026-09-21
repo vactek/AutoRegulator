@@ -77,4 +77,24 @@ Giving the regulator more than ~9V will instantly boil it.
 SDA/SCL can accept at *most* whatever you give the regulator thanks to the level shifter.
 Double check your wiring at every stage and before power on.
 
-<image>
+- Pinouts for supported boards
+
+| Arduino Nano Pin | Arduino Nano33BLE Pin | Connect To           | 
+|------------------|-----------------------|----------------------|
+| A1               | A1                    | Potentiometer center | 
+| A2               | A2                    | Neopixel Data In     |
+| A4 (SDA)         | A4 (SDA)              | Sensor SDA           |
+| A5 (SCL)         | A5 (SCL)              | Sensor SCL           |
+| A7               | A7                    | Relay input          |
+| 5V               | 3V3                   | Potentiometer V+     |
+| 5V               | 3V3                   | Neopixel VCC         |
+| 5V               | 3V3                   | Sensor Vin           |
+| Vin/VBUS         | Vin/VBUS              | Relay DC+            |
+| GND              | GND                   | Relay DC-            |
+| GND              | GND                   | Sensor GND           |
+| GND              | GND                   | Neopixel GND         |
+| GND              | GND                   | Potentiometer V-     |
+
+![](images/wiring_diagram.png)
+
+
