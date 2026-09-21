@@ -29,7 +29,7 @@
 
 const float PSI_ATMOSPHERIC               = 14.6959; // only used if calibration is ever bypassed for some reason
 const float PSI_ATMOSPHERIC_MIN           = 10.20;   // 10kft@22C@11atm, used as a check in calibration, won't start if below this
-const float STABILITY_CHECK_MAX_DEVIATION = 0.08;    // I get values around 0.02-0.05, this margin is probably generous
+const float STABILITY_CHECK_MAX_DEVIATION = 0.70;    // I get values around 0.02-0.05 sometimes, but up to 0.3 on occasion. this margin is probably generous
 const int STABILITY_CHECK_SAMPLES         = 100;
 const uint32_t STABILITY_CHECK_TIME_MS    = 2000;
 
@@ -53,8 +53,7 @@ const uint32_t MILLIS_PER_MINUTE    = 60000;
 #define COLOR_NONE_OFF        (0x000000) // (off)
 
 // ### APP CONFIGURATION
-// set VERSION_DEV in platformio.ini for debugging
-#define SERIALBAUD                       (9600)
+// set VERSION_DEV in platformio.ini to wait for serial
 #define SERIAL_ENUMERATION_DELAY         (100) // way shorter than esp32 sweet
 #define HEARTBEAT_PERIOD                 (750)
 #define PRINTERVAL                       (2000)
@@ -66,8 +65,8 @@ const uint32_t MILLIS_PER_MINUTE    = 60000;
 #define LED_FLICKER_HZ                   (0.80) // flickering rate while machine active
 #define SENSOR_READINGS_PER_CONTROL_LOOP (4)    // integer, readings are averaged, 2-8 seems the right balance
 
-#ifdef VERSION_DEV
-#define TIMESTAMP_BUFSZ (64) // may need to reduce this on an actual nano 328P
+#ifdef CAN_STORE_MANY_STRINGS
+#define TIMESTAMP_BUFSZ (64)
 #define TIMESTAMP()                                                                                                                                                                                                                            \
     {                                                                                                                                                                                                                                          \
         char timestampbuf[TIMESTAMP_BUFSZ];                                                                                                                                                                                                    \
@@ -237,7 +236,7 @@ void _on_fail(void) {
     }
 
 void periodicStatsPrint() {
-#ifdef VERSION_DEV
+#ifdef CAN_STORE_MANY_STRINGS
     static uint32_t loopcounter        = 0;
     static uint32_t time_of_last_print = 0;
     loopcounter++;
@@ -377,6 +376,7 @@ void calibrate_and_check() {
     float max         = -9999;
     for (int k = 0; k < STABILITY_CHECK_SAMPLES; k++) {
         float s                   = get_mpr_sample();
+        DEBUGLN(s);
         uint32_t stab_sampl_start = millis();
         while (millis() < (stab_sampl_start + STABILITY_CHECK_TIME_MS / STABILITY_CHECK_SAMPLES)) {
             neopixel_flash_color(COLOR_PROCESSING_WAIT);
@@ -390,19 +390,26 @@ void calibrate_and_check() {
         }
     }
     float range = max - min;
+    calibration_ref_psi = accumulator / STABILITY_CHECK_SAMPLES;
+    
+    DEBUG("Local pressure is ");
+    DEBUG(calibration_ref_psi, 2);
+    DEBUGLN("psi");
+    
     DEBUG("Stability test range: ");
     DEBUGLN(range);
     if (range > STABILITY_CHECK_MAX_DEVIATION) {
         DEBUG("calibration fail: too wide of range: ");
+        DEBUG(max);
+        DEBUG(" - ");
+        DEBUG(min);
+        DEBUG(" = ");
         DEBUGLN(range);
         EXIT_FAILURE_FN();
     }
 
-    calibration_ref_psi = accumulator / STABILITY_CHECK_SAMPLES;
     if (calibration_ref_psi > PSI_ATMOSPHERIC_MIN) {
-        DEBUG("Done, local pressure is ");
-        DEBUG(calibration_ref_psi, 2);
-        DEBUGLN("psi");
+        DEBUGLN("Done");
     } else {
         DEBUGLN("calibration fail: atmospheric minimum");
         EXIT_FAILURE_FN();
@@ -414,6 +421,7 @@ void wait_for_zero_input() {
     // requires the user to turn the potentiometer down all the way for a short time
     // + cool little lighting bit
     const uint32_t must_stay_off_for = 200; // ms
+    DEBUGLN("To start, turn dial all the way left, then to the right");
     while (get_single_pot_value() >= POT_LOWER_CUTOFF_PERCENT) {
         neopixel_flash_color(COLOR_AWAITING_USER);
     }
@@ -431,6 +439,7 @@ void wait_for_zero_input() {
             break;
         }
     }
+    DEBUGLN("Ready");
     while (get_single_pot_value() < POT_LOWER_CUTOFF_PERCENT) {
         neopixel_show_color(COLOR_AWAITING_USER);
     }
@@ -467,14 +476,14 @@ void setup() {
     Wire.begin();
     configure_pins();
 
-#ifdef VERSION_DEV
     Serial.begin(SERIALBAUD);
+#ifdef VERSION_DEV
     while (!Serial) {
         yield();
     }
+#endif
     delay(SERIAL_ENUMERATION_DELAY);
     DEBUGLN("Serial Connected!");
-#endif
     // ## mid setup
     bool init_neopixel_success = g_neopixel.begin();
     if (!init_neopixel_success) {
