@@ -2,12 +2,13 @@
 
 AutoRegulator is an Arduino Nano or NanoBLE powered suction regulator.
 A relay is actuated based on a sensor and threshold - that's pretty much it.
-It's designed to be very inexpensive and easy to source parts for. 
+It's designed to be inexpensive and easy to source parts for. 
 
 ## WIP
 
 Still to-do
 
+- safety analysis
 - bom, sourcing
 - upload schematic and hardware build guide (maybe do a pcb, it's not that many wires to solder though)
 - notes about how fragile the sensor is
