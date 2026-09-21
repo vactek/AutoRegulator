@@ -48,6 +48,7 @@ const uint32_t MILLIS_PER_MINUTE    = 60000;
 // colors
 
 #define COLOR_PROCESSING_WAIT (0xFFFB08) // yellow
+#define COLOR_SUCCESS         (0x00DF10) // green
 #define COLOR_AWAITING_USER   (0x4EA5E0) // bluish
 #define COLOR_ERROR           (0xFF0002) // red
 #define COLOR_NONE_OFF        (0x000000) // (off)
@@ -104,7 +105,8 @@ float potentiometerValue = 0.0; // pot 0.0 - 1.0
 // stats
 uint32_t started_this_pull_at    = 0;    // if 0, we can assume we haven't started a pull down, but it's better to check isSuctionActive to be sure.
 bool waiting_for_inital_pulldown = true; // turns false the first time the target is reached
-uint32_t pulldown_achieved_at    = 0;
+uint32_t first_pulldown_achieved_at    = 0;
+uint32_t this_pulldown_achieved_at    = 0; // also used for LED animation upon pulldown
 // these vars are the number of counts spent "pulling down" a vacuum in the main loop
 // and the total counts where the target pressure is met while in the main loop, respectively
 // where one count occurs during one loop
@@ -292,7 +294,7 @@ void periodicStatsPrint() {
             vac_duty_off_post_pulldown = 1; // prevent divide by zero in edge case
         }
         DEBUG("> Duty cycle (since pulldown at t=");
-        DEBUG(pulldown_achieved_at);
+        DEBUG(first_pulldown_achieved_at);
         DEBUGLN("):");
         DEBUG((100 * vac_duty_on_post_pulldown) / (vac_duty_on_post_pulldown + vac_duty_off_post_pulldown));
         DEBUGLN("%");
@@ -307,6 +309,7 @@ void periodicStatsPrint() {
 }
 
 void doNeopixelColorBasedOnPot() {
+    const int num_flashes_upon_success = 3;
     bool shouldPulsate = isSuctionActive;
     if (!userInputValid()) {
         g_neopixel.clear();
@@ -318,14 +321,23 @@ void doNeopixelColorBasedOnPot() {
     g_neopixel.fill(g_neopixel.ColorHSV(mapfloat(potentiometerValue, POT_LOWER_CUTOFF_PERCENT, 1.0, (0.36 * 65535), (0.0 * 65535))));
 
     // stage 2: set brightness, based on activity
+    // pulsate while suction active
+    // blink green when pulldown achieved
+    // solid when vacuum is holding
     if (shouldPulsate) {
         // we use both halves of the sine wave
         // so there's an invisible divided by two and times two that cancel out
         // g_neopixel.gamma8( looked bad
         g_neopixel.setBrightness(LED_BRIGHTNESS_PERCENT * 0xFF * abs(sinf(LED_FLICKER_HZ * PI * millis() / float(MILLIS_PER_SEC))));
     } else {
+        if ((millis() - this_pulldown_achieved_at) <= (MILLIS_PER_SEC * num_flashes_upon_success / LED_RAPID_FLASH_HZ)) {
+            // detour, we want a completely different output driver
+            neopixel_flash_color(COLOR_SUCCESS);
+            return;
+        }
         g_neopixel.setBrightness(LED_BRIGHTNESS_PERCENT * 0xFF);
     }
+    
     neopixel_show_i2c_rate_limited();
 }
 
@@ -461,9 +473,10 @@ void bang_bang_controller() {
     if (currentPressure <= lowest_allowed) {
         // target reached!
         disableSuction();
+        this_pulldown_achieved_at = millis();
         if (waiting_for_inital_pulldown) {
             waiting_for_inital_pulldown = false;
-            pulldown_achieved_at        = millis();
+            first_pulldown_achieved_at        = millis();
         }
     }
     if (currentPressure >= targetPressure) {
