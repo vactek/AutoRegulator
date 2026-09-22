@@ -1,6 +1,10 @@
 /**
   AutoRegulator Firmware for Arduino Nano / Nano33BLE
   by VacTek, 2026
+  
+
+  Tip: Flash a DEV_ version to wait-for-serial
+
 */
 
 #include <Arduino.h>
@@ -8,85 +12,12 @@
 #include <Adafruit_MPRLS.h>
 #include <Adafruit_NeoPixel.h>
 
-// ### HARDWARE
-#define PIN_RELAY         (A7)
-#define PIN_POTENTIOMETER (A1)
-#define PIN_NEOPIXEL      (A2)
-// (also using native I2C)
+#include "user_config.h"
+#include "system_constants.h"
 
-#define ADC_10BIT_MAX (1023)
+#include "app_debug.h"
+#include "util.h"
 
-#define NUM_NEOPIXELS            (1)
-#define MECHANICAL_ACTIVE_LEVEL  (HIGH)
-#define CALIBRATION_VENT_TIME_MS (1000)
-
-// ### LIMITS
-#define BACKUP_TIMER_MS    (3600000UL) // 1h in ms. machine will shut off at this time. not for solo; it's if the operator is struck by lightning.
-#define SUCTION_MAX_MBAR   (170.0F)    // 100~150mbar is ideal, could use further testing
-#define SUCTION_MIN_MBAR   (55.0F)     // minimum targetable. if it's too low the noise of the pump turning on can exceed this in some situations
-#define SUCTION_HYSTERESIS (30.0F)     // in mbar. low values cause rapid switching, higher values (may) reduce duty cycle at the cost of average suction
-#define MECHANICAL_MAX_HZ  (0.8F)      // max (average) frequency the relay can ever switch at
-
-const float PSI_ATMOSPHERIC               = 14.6959; // only used if calibration is ever bypassed for some reason
-const float PSI_ATMOSPHERIC_MIN           = 10.20;   // 10kft@22C@11atm, used as a check in calibration, won't start if below this
-const float STABILITY_CHECK_MAX_DEVIATION = 0.70;    // I get values around 0.02-0.05 sometimes, but up to 0.3 on occasion. this margin is probably generous
-const int STABILITY_CHECK_SAMPLES         = 100;
-const uint32_t STABILITY_CHECK_TIME_MS    = 2000;
-
-// ### CONSTANTS
-const float PSI_TO_MBAR             = PSI_to_HPA;
-const float MPR_MAX_HZ              = 160.0;
-const float MPR_PSI_MIN             = 0.0;
-const float MPR_PSI_MAX             = 25.0;
-const float MPR_factoryDefault_Omin = 10.0;
-const float MPR_factoryDefault_Omax = 90.0;
-const float MPR_Kfactor             = 1.0; // set to one to force output in PSI
-const uint32_t MILLIS_PER_SEC       = 1000;
-const uint32_t MICROS_PER_MILLI     = 1000;
-const uint32_t MILLIS_PER_MINUTE    = 60000;
-
-// colors
-
-#define COLOR_PROCESSING_WAIT (0xFFFB08) // yellow
-#define COLOR_SUCCESS         (0x00DF10) // green
-#define COLOR_AWAITING_USER   (0x4EA5E0) // bluish
-#define COLOR_ERROR           (0xFF0002) // red
-#define COLOR_NONE_OFF        (0x000000) // (off)
-
-// ### APP CONFIGURATION
-// set VERSION_DEV in platformio.ini to wait for serial
-#define SERIAL_ENUMERATION_DELAY         (100) // way shorter than esp32 sweet
-#define HEARTBEAT_PERIOD                 (750)
-#define PRINTERVAL                       (2000)
-#define POT_SAMPLE_SZ                    (10)   // adc samples for pot averaging
-#define POT_SAMPLE_DELAY                 (10)   // total (minimum) time in ms over which to take the samples
-#define POT_LOWER_CUTOFF_PERCENT         (0.05) // pot will be considered switched off below this precentile of its range
-#define LED_BRIGHTNESS_PERCENT           (0.32) // neopixel brightness
-#define LED_RAPID_FLASH_HZ               (5.0)  // flashing rate while calibrating
-#define LED_FLICKER_HZ                   (0.80) // flickering rate while machine active
-#define SENSOR_READINGS_PER_CONTROL_LOOP (4)    // integer, readings are averaged, 2-8 seems the right balance
-
-#ifdef CAN_STORE_MANY_STRINGS
-#define TIMESTAMP_BUFSZ (64)
-#define TIMESTAMP()                                                                                                                                                                                                                            \
-    {                                                                                                                                                                                                                                          \
-        char timestampbuf[TIMESTAMP_BUFSZ];                                                                                                                                                                                                    \
-        snprintf(timestampbuf, TIMESTAMP_BUFSZ - 1, "[%3lu.%03lu%03lu] [%s::%u]  ", millis() / 1000UL, millis() % 1000UL, micros() % 1000UL, __FILE__, __LINE__);                                                                              \
-        Serial.print(timestampbuf);                                                                                                                                                                                                            \
-    }
-#define TIMESTAMPLN()                                                                                                                                                                                                                          \
-    {                                                                                                                                                                                                                                          \
-        TIMESTAMP();                                                                                                                                                                                                                           \
-        Serial.println();                                                                                                                                                                                                                      \
-    }
-#define DEBUG(...)   Serial.print(__VA_ARGS__)
-#define DEBUGLN(...) Serial.println(__VA_ARGS__)
-#else
-#define TIMESTAMP()
-#define TIMESTAMPLN()
-#define DEBUG(...)
-#define DEBUGLN(...)
-#endif
 
 // ### GLOBALS
 
@@ -100,13 +31,13 @@ float last_known_psi      = 0.0; // ONLY used for stats
 // ONLY set this by enableSuction/disableSuction functions!
 // ONLY read this for controlling LEDs!
 bool isSuctionActive     = false;
-float targetPressure     = 999; // used by control system, AND for stats. units mbar
-float potentiometerValue = 0.0; // pot 0.0 - 1.0
+float targetPressure     = 99999; // used by control system, AND for stats. units mbar
+float potentiometerValue = 0.0;   // pot 0.0 - 1.0
 // stats
-uint32_t started_this_pull_at    = 0;    // if 0, we can assume we haven't started a pull down, but it's better to check isSuctionActive to be sure.
-bool waiting_for_inital_pulldown = true; // turns false the first time the target is reached
-uint32_t first_pulldown_achieved_at    = 0;
-uint32_t this_pulldown_achieved_at    = 0; // also used for LED animation upon pulldown
+uint32_t started_this_pull_at       = 0;    // if 0, we can assume we haven't started a pull down, but it's better to check isSuctionActive to be sure.
+bool waiting_for_inital_pulldown    = true; // turns false the first time the target is reached
+uint32_t first_pulldown_achieved_at = 0;
+uint32_t this_pulldown_achieved_at  = 0; // also used for LED animation upon pulldown
 // these vars are the number of counts spent "pulling down" a vacuum in the main loop
 // and the total counts where the target pressure is met while in the main loop, respectively
 // where one count occurs during one loop
@@ -119,19 +50,13 @@ uint32_t time_since_last_mech_change() { return millis() - time_of_last_mech_cha
 
 // ### FUNCTIONS
 
-float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
-    float run   = in_max - in_min;
-    float rise  = out_max - out_min;
-    float delta = x - in_min;
-    return (delta * rise) / run + out_min;
-}
-
 void led_heartbeat() {
     // simple check if main loop is running. 0x20 -> brightness
     analogWrite(LED_BUILTIN, millis() % HEARTBEAT_PERIOD > (HEARTBEAT_PERIOD >> 1) ? 0x20 : LOW);
 }
 
 void configure_pins() {
+
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -140,6 +65,10 @@ void configure_pins() {
 
     pinMode(PIN_NEOPIXEL, OUTPUT);
     pinMode(PIN_POTENTIOMETER, INPUT);
+
+    // todo: dynamically (or statically if it's possible)
+    // force the ADC resolution to 10 bits
+    // in a way that works on all supported boards
 }
 
 bool userInputValid() {
@@ -147,7 +76,10 @@ bool userInputValid() {
     return potentiometerValue > POT_LOWER_CUTOFF_PERCENT;
 }
 
-float get_single_pot_value() { return mapfloat(analogRead(PIN_POTENTIOMETER), 0, ADC_10BIT_MAX, 0.0, 1.0); }
+float get_single_pot_value() { 
+    // just read the ADC, doesn't touch global state
+    return mapfloat(analogRead(PIN_POTENTIOMETER), 0, AR_ADC_MAX, 0.0, 1.0); 
+}
 
 void disableSuction() {
     // (ideally) no effect if suction already disabled
@@ -159,6 +91,11 @@ void disableSuction() {
         time_of_last_mech_change = millis();
         started_this_pull_at     = 0;
     }
+}
+
+void disableSuctionFS() {
+    // immediately disable suction, none of the fluff
+    digitalWrite(PIN_RELAY, !(MECHANICAL_ACTIVE_LEVEL));
 }
 
 void enableSuction() {
@@ -195,17 +132,18 @@ void update_pot_val() {
     }
 
     float avg          = running_total / POT_SAMPLE_SZ;
-    potentiometerValue = mapfloat(avg, 0, ADC_10BIT_MAX, 0.0, 1.0);
+    potentiometerValue = mapfloat(avg, 0, AR_ADC_MAX, 0.0, 1.0);
 }
 
 void neopixel_show_i2c_rate_limited() {
     // calls g_neopixel.show but only if we didn't call it in the last 2ms
+    // todo: the actual rate limit, lmao
     g_neopixel.show();
 }
 
 void neopixel_show_color(uint32_t c) {
     g_neopixel.fill(c);
-    g_neopixel.setBrightness(LED_BRIGHTNESS_PERCENT * 255);
+    g_neopixel.setBrightness(LED_BRIGHTNESS_PERCENT * 0xFF);
     neopixel_show_i2c_rate_limited();
 }
 
@@ -233,6 +171,7 @@ void _on_fail(void) {
 }
 #define EXIT_FAILURE_FN()                                                                                                                                                                                                                      \
     {                                                                                                                                                                                                                                          \
+        disableSuctionFS();                                                                                                                                                                                                                    \
         TIMESTAMPLN();                                                                                                                                                                                                                         \
         _on_fail();                                                                                                                                                                                                                            \
     }
@@ -310,7 +249,7 @@ void periodicStatsPrint() {
 
 void doNeopixelColorBasedOnPot() {
     const int num_flashes_upon_success = 3;
-    bool shouldPulsate = isSuctionActive;
+    bool shouldPulsate                 = isSuctionActive;
     if (!userInputValid()) {
         g_neopixel.clear();
         neopixel_show_i2c_rate_limited();
@@ -337,7 +276,7 @@ void doNeopixelColorBasedOnPot() {
         }
         g_neopixel.setBrightness(LED_BRIGHTNESS_PERCENT * 0xFF);
     }
-    
+
     neopixel_show_i2c_rate_limited();
 }
 
@@ -387,7 +326,7 @@ void calibrate_and_check() {
     float min         = 9999;
     float max         = -9999;
     for (int k = 0; k < STABILITY_CHECK_SAMPLES; k++) {
-        float s                   = get_mpr_sample();
+        float s = get_mpr_sample();
         DEBUGLN(s);
         uint32_t stab_sampl_start = millis();
         while (millis() < (stab_sampl_start + STABILITY_CHECK_TIME_MS / STABILITY_CHECK_SAMPLES)) {
@@ -401,13 +340,13 @@ void calibrate_and_check() {
             max = s;
         }
     }
-    float range = max - min;
+    float range         = max - min;
     calibration_ref_psi = accumulator / STABILITY_CHECK_SAMPLES;
-    
+
     DEBUG("Local pressure is ");
     DEBUG(calibration_ref_psi, 2);
     DEBUGLN("psi");
-    
+
     DEBUG("Stability test range: ");
     DEBUGLN(range);
     if (range > STABILITY_CHECK_MAX_DEVIATION) {
@@ -474,9 +413,13 @@ void bang_bang_controller() {
         // target reached!
         disableSuction();
         this_pulldown_achieved_at = millis();
+        // uncomment these for immediate tuning feedback
+        // DEBUGLN(currentPressure); // pressure in mbar
+        // DEBUGLN(calibration_ref_psi * PSI_TO_MBAR - targetPressure); // current suction in mbar
+        //
         if (waiting_for_inital_pulldown) {
             waiting_for_inital_pulldown = false;
-            first_pulldown_achieved_at        = millis();
+            first_pulldown_achieved_at  = millis();
         }
     }
     if (currentPressure >= targetPressure) {
@@ -497,10 +440,12 @@ void setup() {
 #endif
     delay(SERIAL_ENUMERATION_DELAY);
     DEBUGLN("Serial Connected!");
+    
     // ## mid setup
     bool init_neopixel_success = g_neopixel.begin();
     if (!init_neopixel_success) {
         DEBUGLN("INIT FAIL: NEOPIXELS");
+        DEBUGLN("This should never happen!");
     }
     bool init_mpr_success = g_mpr25.begin(0x18, &Wire);
     if (!init_mpr_success) {
@@ -509,9 +454,7 @@ void setup() {
     }
     if (!init_neopixel_success || !init_mpr_success) {
         DEBUGLN("One or more inits failed, halting.");
-        while (true) {
-            yield();
-        }
+        EXIT_FAILURE_FN();
     }
 
     // ## late setup
