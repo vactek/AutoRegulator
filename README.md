@@ -14,7 +14,7 @@ This project is just in charge of switching a relay.
 
 ## Features
 
-- Automatic calibration
+- Automatic calibration to your elevation
 - Settable suction level
 - LED feedback
 
@@ -22,7 +22,7 @@ This project is just in charge of switching a relay.
 
 - Serial console with statistics
 - coming soon? BLE functionality / [buttplug.io](https://github.com/buttplugio) integration (I have a separate working prototype, just have to integrate it)
-- coming soon? pulsing/pattern playback functionality (may require additional hardware to control venting rate)
+- coming soon? pulsing/pattern playback functionality (may require additional hardware to increase venting rate)
 
 ### Safety features
 
@@ -34,7 +34,7 @@ In the rare case that something goes wrong, like, a lightning strike, we've trie
   - automatic shutdown if sensor read fails
   - automatic shutdown after 1 hour
 
-...but you should not rely on any of these. Ever. This isn't enterprise industrial control software, it's DIY hardware, and ultimately, it's up to the operator of the machine to decide how to use this!
+...but you should not rely on any of these. Ever. This isn't enterprise industrial control software, it's DIY hardware, and ultimately, it's up to the operator of the machine to decide how to use this! *Even* having a supervisor may not be enough, and we actually recommend using [an entirely separate timer-controlled outlet](https://www.amazon.com/s?k=timer+controlled+outlet) in *addition*, to interrupt power to your pump after an hour.
 (I'm not liable or responsible for the irresponsible use of this considerably irresponsible firmware written by idiots)
 
 ## Build Guide
@@ -54,7 +54,7 @@ In the rare case that something goes wrong, like, a lightning strike, we've trie
    - If you'd like, you can use a plain linear rotary pot (10k ideally) and a single WS2812B-compatible LED
  - Solderable FR4 Protoboard - 70x90mm recommended
  - Female pin headers (optional, but makes swapping things out a lot easier while soldering)
- - 0.1uF ceramic capacitor (THT, optional)
+ - 0.1uF ceramic capacitor (THT, optional, filter power input to relay board)
 
 You may need some other things, such as:
  - Electrical tape
@@ -66,11 +66,11 @@ You may need some other things, such as:
 
 ### 3D Printed Parts (SLA)
 
-- Sensor to 3/16" tubing adapter (requires heatset inserts, and 2 2.5mmx8 SHCS screws) (todo:link)
+- [Sensor to 3/16" tubing adapter](/models/AdafruitSensorToTubing.stl) (requires heatset inserts, and 2 2.5mmx8 SHCS screws)
 - 3/16" tubing to PVC adapter (todo:link, other PVC size variants)
 - 3/16" tubing break-out block
 
-- You'll also need a case, but depending on where you mount the parts on the protoboard, it's going to be different.
+- You'll also want a case, but depending on where you mount the parts on the protoboard, it's going to be different.
 
 ### Assembly
 
