@@ -4,18 +4,19 @@
 
 // *** AUTO REGULATOR USER CONFIGURATION *** //
 
-// --- Hardware --- 
+// --- Hardware ---
 
-constexpr unsigned PIN_RELAY         = (A7);
-constexpr unsigned PIN_POTENTIOMETER = (A1);
-constexpr unsigned PIN_NEOPIXEL      = (A2);
-constexpr unsigned _PIN_SDA          = (A4); // can't be changed, just here for reference
-constexpr unsigned _PIN_SCL          = (A5); // can't be changed, just here for reference
+constexpr unsigned PIN_RELAY               = (A7);
+constexpr unsigned PIN_POTENTIOMETER       = (A1);
+constexpr unsigned PIN_NEOPIXEL            = (A2);
+constexpr unsigned PIN_SENSOR_MANUAL_RESET = (-1); // (optional, leave as -1)
+constexpr unsigned _PIN_SDA                = (A4); // can't be changed, just here for reference
+constexpr unsigned _PIN_SCL                = (A5); // can't be changed, just here for reference
 
 static_assert(_PIN_SDA == PIN_WIRE_SDA, "Changing I2C pins from hardware default is not supported");
 static_assert(_PIN_SCL == PIN_WIRE_SCL, "Changing I2C pins from hardware default is not supported");
 
-// --- Mechanics & Limits --- 
+// --- Mechanics & Limits ---
 
 // Suction: tune to preference, and your machine limits
 

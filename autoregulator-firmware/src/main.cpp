@@ -1,8 +1,10 @@
 /**
   AutoRegulator Firmware for Arduino Nano / Nano33BLE
-  by VacTek, 2026
   
+  We toggle a relay based on a sensor reading and threshold, set by a knob.
 
+  2026
+  
   Tip: Flash a DEV_ version to wait-for-serial
 
 */
@@ -23,7 +25,7 @@
 
 // peripheral objects
 Adafruit_NeoPixel g_neopixel(NUM_NEOPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ400);
-Adafruit_MPRLS g_mpr25 = Adafruit_MPRLS(-1, -1, MPR_PSI_MIN, MPR_PSI_MAX, MPR_factoryDefault_Omin, MPR_factoryDefault_Omax, MPR_Kfactor); // no rst/eoc
+Adafruit_MPRLS g_mpr25 = Adafruit_MPRLS(PIN_SENSOR_MANUAL_RESET, -1, MPR_PSI_MIN, MPR_PSI_MAX, MPR_factoryDefault_Omin, MPR_factoryDefault_Omax, MPR_Kfactor); // no rst/eoc
 
 // vars
 float calibration_ref_psi = PSI_ATMOSPHERIC;
