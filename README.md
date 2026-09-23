@@ -81,6 +81,8 @@ Giving the regulator more than ~9V will instantly boil it.
 SDA/SCL can accept at *most* whatever you give the regulator thanks to the level shifter.
 Double check your wiring at every stage and before power on.
 
+- **NOTICE**: AC Power is dangerous.
+
 - Pinouts for supported boards
 
 | Arduino Nano Pin | Arduino Nano33BLE Pin | Connect To           | 
@@ -105,10 +107,9 @@ Double check your wiring at every stage and before power on.
 |-----------|-------------------------------|
 | COM       | User defined, e.g, AC neutral |
 | NO        | User defined, e.g, AC live    |
-| NC        | Nothing                       |
+| NC        | **Nothing**                   |
 
 ---
 
 ![](images/wiring_diagram.png)
-
-
+![](images/hardware_1.JPEG)
